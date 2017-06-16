@@ -1,0 +1,29 @@
+---
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Allocate Elastic IP (EIP) for VPN, Nat Gateway 1 and 2.
+
+Resources:
+  VpnEip:
+    Type: AWS::EC2::EIP
+  NatGatewayEIP1:
+    Type: AWS::EC2::EIP
+  NatGatewayEIP2:
+    Type: AWS::EC2::EIP
+
+Outputs:
+  VpnEip:
+    Description: |
+      VPN EIP
+    Value: !GetAtt VpnEip.AllocationId
+  NatGatewayEIP1:
+    Description: |
+      Nat Gateway EIP 1
+    Value: !GetAtt NatGatewayEIP1.AllocationId
+  NatGatewayEIP2:
+    Description: |
+      Nat Gateway EIP 2
+    Value: !GetAtt NatGatewayEIP2.AllocationId
+...

@@ -1,0 +1,177 @@
+---
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Layer 1 - Public Networking
+
+Parameters:
+  BaseVpcId:
+    Description: |
+      ID of the VPC where the network will be created.
+    Type: AWS::EC2::VPC::Id
+    Default: ""
+  SubnetCidr1:
+    Description: |
+      Classless Inter-Domain Routing (CIDR) Range for private subnet 1. 
+      Note - Make sure the range is within the CIDR range of the VPC we have choosen with BaseVpcId and does not clash with eny existing subnets in this VPC.
+    Type: String
+    Default: "10.0.1.0/27"
+    MinLength: "9"
+    MaxLength: "18"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "Must be a valid CIDR range of the form x.x.x.x/x"
+  SubnetCidr2:
+    Description: |
+      Classless Inter-Domain Routing (CIDR) Range for private subnet 2.
+      Note - Make sure the range is within the CIDR range of the VPC we have choosen with BaseVpcId and does not clash with eny existing subnets in this VPC.
+    Type: String
+    Default: "10.0.2.0/27"
+    MinLength: "9"
+    MaxLength: "18"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "Must be a valid CIDR range of the form x.x.x.x/x"
+  VpcInternetGatewayId:
+    Description: |
+      ID of the VPC Internet Gateway (from the output of the VPC CloudFormation)
+    Type: String
+    Default: ""
+  VpcAvailabilityZones:
+    Description: |
+      Comma-delimited list of two VPC availability zones in which the subnets are to be created. This will only work in a region with two or more AZs.
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Default: ""
+  NATGatewayEIPId1:
+    Description: |
+      EIP Allocation ID for NAT Gateway 1 (from the output of the the EIP CloudFormation)
+    Type: String
+    Default: ""
+  NATGatewayEIPId2:
+    Description: |
+      EIP Allocation ID for NAT Gateway 2 (from the output of the the EIP CloudFormation)
+    Type: String
+    Default: ""
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Public Network Configuration"
+        Parameters:
+          - BaseVpcId
+          - SubnetCidr1
+          - SubnetCidr2
+          - VpcInternetGatewayId
+          - VpcAvailabilityZones
+          - NATGatewayId1
+          - NATGatewayId2
+    ParameterLabels:
+      BaseVpcId:
+        default: "VPC ID"
+      SubnetCidr1:
+        default: "Subnet CIDR 1"
+      SubnetCidr2:
+        default: "Subnet CIDR 2"
+      VpcInternetGatewayId:
+        default: "Internet Gateway ID"
+      VpcAvailabilityZones:
+        default: "VPC Availability Zones"
+      NATGatewayEIPId1:
+        default: "EIP Allocation ID for NAT Gateway 1"
+      NATGatewayEIPId2:
+        default: "EIP Allocation ID for NAT Gateway 2"
+
+Resources:
+  PublicSubnetAz1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: BaseVpcId
+      CidrBlock:
+        Ref: SubnetCidr1
+      AvailabilityZone: !Select [ "0", !Ref VpcAvailabilityZones ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "-", [ !Ref "AWS::StackName", "Public", "Subnet", "1" ] ]
+
+  PublicSubnetAz2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: BaseVpcId
+      CidrBlock:
+        Ref: SubnetCidr2
+      AvailabilityZone: !Select [ "1", !Ref VpcAvailabilityZones ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "-", [ !Ref "AWS::StackName", "Public", "Subnet", "2" ] ]
+
+
+  RouteViaIgw:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: BaseVpcId
+
+  PublicRouteViaIgw:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: RouteViaIgw
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId:
+        Ref: VpcInternetGatewayId
+
+  ProxySubnet1RouteTableAsscociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetAz1
+      RouteTableId:
+        Ref: RouteViaIgw
+
+  ProxySubnet2RouteTableAsscociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetAz2
+      RouteTableId:
+        Ref: RouteViaIgw
+
+  NatGatewayAz1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Ref: NATGatewayEIPId1
+      SubnetId:
+        Ref: PublicSubnetAz1
+
+  NatGatewayAz2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Ref: NATGatewayEIPId2
+      SubnetId:
+        Ref: PublicSubnetAz2
+
+Outputs:
+  NatGatewayAz1ID:
+    Description: "ID of the NAT Gateway in AZ 1"
+    Value:
+      Ref: NatGatewayAz1
+  NatGatewayAz2ID:
+    Description: "ID of the NAT Gateway in AZ 2"
+    Value:
+      Ref: NatGatewayAz2
+  PublicSubnetAz1:
+    Description: ID of the public subnet in AZ 1
+    Value:
+      Ref: PublicSubnetAz1
+  PublicSubnetAz2:
+    Description: ID of the public subnet in AZ 2
+    Value:
+      Ref: PublicSubnetAz2
+...

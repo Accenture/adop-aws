@@ -1,0 +1,257 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "A template to launch ADOP Gen 5 in a private subnet.",
+    "Mappings": {
+		"RegionMap": {
+          "eu-central-1": {
+            "AMI": "ami-9bf712f4"
+          },
+          "eu-west-1": {
+            "AMI": "ami-7abd0209"
+          },
+          "us-east-1": {
+            "AMI": "ami-6d1c2007"
+          },
+          "us-west-2": {
+            "AMI": "ami-d2c924b2"
+          },
+          "us-west-1": {
+            "AMI": "ami-af4333cf"
+          },
+          "ap-southeast-2": {
+            "AMI": "ami-fedafc9d"
+          },
+          "eu-west-2": {
+            "AMI": "ami-bb373ddf"
+          }
+        }
+    },
+    "Outputs": {
+        "ReleaseNote": {
+            "Description": "This is your starting point, please copy this URL into your web browser.",
+            "Value": {
+                "Fn::Join": [
+                    "", [
+                        "http://", {
+                            "Fn::GetAtt": [
+                                "ADOP5Ec2Instance",
+                                "PrivateIp"
+                            ]
+                        },
+                        "/"
+                    ]
+                ]
+            }
+        }
+    },
+    "Parameters": {
+        "AdopUsername": {
+            "Default": "changeme",
+            "Description": "ADOP admin account username. Username can not be set to 'admin' or 'Admin' and it must contain only letters and numbers. Minimum length is 3.",
+            "Type": "String",
+            "MinLength": "3",
+            "AllowedPattern": "(?!admin|Admin)[A-Za-z0-9.]*",
+            "ConstraintDescription": "Username can not be set to 'admin' or 'Admin' and it must contain only letters and numbers and minimum length is 3."
+        },
+        "AdopUserPassword": {
+            "NoEcho": "true",
+            "Description": "ADOP admin account password. Must be at least 8 characters long and contain at least one number, and cannot contain word \"password\" or your username",
+            "Type": "String",
+            "MinLength": "8",
+            "AllowedPattern": "(?!password|Password)[A-Za-z0-9]*([a-zA-Z]+[0-9]+|[0-9]+[a-zA-Z]+)",
+            "ConstraintDescription": "Password must contain only letters and numbers, it must contain at least one number, and cannot contain your username or word \"password\""
+        },
+		"VpcID": {
+		    "Description": "VPC Id of where your instance will be created",
+		    "Type": "AWS::EC2::VPC::Id"
+		},
+        "VPCCidr" : {
+            "Description" : "VPC Cidr range to allow connetion to the instance from within the VPC.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.0.0.0/16",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+		"VPCSubnet": {
+		   "Description": "Private subnet ID of your stack (ensure a NAT gateway is attached)",
+		   "Type": "AWS::EC2::Subnet::Id"
+		},
+        "KeyName": {
+            "Description": "Key-pair name to use. Note : Make sure you choose a key which you have.",
+            "Type": "AWS::EC2::KeyPair::KeyName"
+        }
+    },
+    "Resources": {
+        "ADOP5Ec2Instance": {
+            "Properties": {
+                "BlockDeviceMappings": [{
+                    "DeviceName": "/dev/sda1",
+                    "Ebs": {
+                        "DeleteOnTermination": "true",
+                        "VolumeSize": 50,
+                        "VolumeType": "gp2"
+                    }
+                }],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap", {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "InstanceType": "m4.xlarge",
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "NetworkInterfaces": [{
+                    "DeleteOnTermination": "true",
+                    "DeviceIndex": "0",
+                    "GroupSet": [{
+                        "Ref": "ADOP5SecurityGroup"
+                    }],
+                    "SubnetId": {
+                        "Ref": "VPCSubnet"
+                    }
+                }],
+                "Tags": [
+                  {
+                    "Key": "Name",
+                    "Value": {
+                      "Fn::Join": [
+                        "-",
+                        [
+                          {
+                            "Ref": "AWS::StackName"
+                          },
+                          "ADOPInstance"
+                        ]
+                      ]
+                    }
+                  }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "", [
+                                "#!/bin/bash\n",
+                                "cat > /etc/yum.repos.d/docker.repo <<-'EOF'\n",
+                                "[dockerrepo]\n",
+                                "name=Docker Repository\n",
+                                "baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/\n",
+                                "enabled=1\n",
+                                "gpgcheck=1\n",
+                                "gpgkey=https://yum.dockerproject.org/gpg\n",
+                                "EOF\n",
+                                "echo '\n==============================================================================='\n",
+                                "echo '=========================== Installing Yum Packages ==========================='\n",
+                                "echo '===============================================================================\n'\n",
+                                "yum -y install wget unzip git docker-engine-1.10.3-1.el7.centos.x86_64\n",
+                                "grep 'tcp://0.0.0.0:2375' /usr/lib/systemd/system/docker.service || sed -i 's#ExecStart\\(.*\\)$#ExecStart\\1 -H tcp://0.0.0.0:2375#' /usr/lib/systemd/system/docker.service\n",
+                                "systemctl daemon-reload && systemctl enable docker && systemctl restart docker\n",
+                                "echo '\n==============================================================================='\n",
+                                "echo '============================== Installing AWS CLI ============================='\n",
+                                "echo '===============================================================================\n'\n",
+                                "wget http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm\n",
+                                "rpm -Uvh epel-release-6-8.noarch.rpm\n",
+                                "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                                "echo '=========================== Installing Docker Compose =========================='\n",
+                                "curl -L https://github.com/docker/compose/releases/download/1.7.1/docker-compose-`uname -s`-`uname -m` > /usr/bin/docker-compose\n",
+                                "chmod +x /usr/bin/docker-compose\n",
+                                "echo '=========================== Running Docker Compose =========================='\n",
+                                "export IP=$(hostname --ip-address)\n",
+                                "export PRIVATE_IP=$(curl http://instance-data/latest/meta-data/local-ipv4)\n",
+                                "export INITIAL_ADMIN_USER=", {"Ref": "AdopUsername"}, "\n",
+                                "export INITIAL_ADMIN_PASSWORD_PLAIN=", {"Ref": "AdopUserPassword"}, "\n",
+                                "export JENKINS_TOKEN=gAsuE35s\n",
+                                "export DOCKER_HOST=tcp://${PRIVATE_IP}:2375\n",
+                                "set -e\n",
+                                "mkdir -p /data && cd /data\n",
+                                "git clone https://github.com/Accenture/adop-docker-compose\n",
+
+                                "cd /data/adop-docker-compose\n",
+
+                                "export METADATA_URL='http://169.254.169.254/latest/meta-data'\n",
+                                "export MAC_ADDRESS=$(curl -s ${METADATA_URL}/network/interfaces/macs/)\n",
+                                "export AWS_VPC_ID=$(curl -s ${METADATA_URL}/network/interfaces/macs/${MAC_ADDRESS}/vpc-id/)\n",
+                                "export AWS_SUBNET_ID=$(curl -s ${METADATA_URL}/network/interfaces/macs/${MAC_ADDRESS}/subnet-id/)\n",
+                                "export AWS_AZ=$(curl -s ${METADATA_URL}/placement/availability-zone)\n",
+                                "export AWS_DEFAULT_REGION=${AWS_AZ%?}\n",
+                                "echo \"export AWS_VPC_ID=${AWS_VPC_ID}\" > conf/provider/env.provider.aws.sh\n",
+                                "echo \"export AWS_SUBNET_ID=${AWS_SUBNET_ID}\" >> conf/provider/env.provider.aws.sh \n",
+                                "echo \"export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}\" >> conf/provider/env.provider.aws.sh \n",
+                                "echo \"export AWS_INSTANCE_TYPE='t2.large'\" >> conf/provider/env.provider.aws.sh\n",
+                                "echo \"export AWS_KEYPAIR='",{"Ref": "KeyName"},"'\" >> conf/provider/env.provider.aws.sh\n",
+                                "./adop compose -i ${PRIVATE_IP} -f etc/aws/default.yml init\n",
+                                "sleep 10\n",
+                                "until [[ $(curl -X GET -s ${INITIAL_ADMIN_USER}:${INITIAL_ADMIN_PASSWORD_PLAIN}@${PRIVATE_IP}/jenkins/job/Load_Platform/lastBuild/api/json?pretty=true|grep result|cut -d$' ' -f5|sed 's|[^a-zA-Z]||g') == SUCCESS ]]; do echo \"Load_Platform job not finished, sleeping for 5s\"; sleep 5; done\n",
+                                "./adop target set -t http://${PRIVATE_IP} -u ${INITIAL_ADMIN_USER} -p ${INITIAL_ADMIN_PASSWORD_PLAIN}\n",
+                                "cat platform.secrets.sh\n",
+                                "cd /data/adop-docker-compose\n",
+                                "set +e\n",
+                                "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                "\"Reason\" : \"ADOP5 is ready\",",
+                                "\"UniqueId\" : \"ADOP5Ec2Instance\",",
+                                "\"Data\" : \"Done\"}' ",
+                                "\"", {"Ref": "ADOP5WaitConditionHandle"}, "\"\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            },
+            "Type": "AWS::EC2::Instance"
+        },
+        "ADOP5SecurityGroup": {
+            "Properties": {
+                "GroupDescription": "Enabling access to all IPs and below listed ports from within VPC",
+                "SecurityGroupIngress": [{
+                    "CidrIp": { "Ref" : "VPCCidr" },
+                    "FromPort": "22",
+                    "IpProtocol": "tcp",
+                    "ToPort": "22"
+                }, {
+                    "CidrIp": { "Ref" : "VPCCidr" },
+                    "FromPort": "80",
+                    "IpProtocol": "tcp",
+                    "ToPort": "80"
+                }, {
+                    "CidrIp": { "Ref" : "VPCCidr" },
+                    "FromPort": "443",
+                    "IpProtocol": "tcp",
+                    "ToPort": "443"
+                }, {
+                    "CidrIp": { "Ref" : "VPCCidr" },
+                    "FromPort": "2376",
+                    "IpProtocol": "tcp",
+                    "ToPort": "2376"
+                }, {
+                    "CidrIp": { "Ref" : "VPCCidr" },
+                    "FromPort": "25826",
+                    "IpProtocol": "udp",
+                    "ToPort": "25826"
+                }],
+                "VpcId": {
+                    "Ref": "VpcID"
+                }
+            },
+            "Type": "AWS::EC2::SecurityGroup"
+        },
+        "ADOP5WaitConditionHandle": {
+            "Type": "AWS::CloudFormation::WaitConditionHandle",
+            "Properties": {}
+        },
+        "ADOP5WaitCondition": {
+            "Type": "AWS::CloudFormation::WaitCondition",
+            "DependsOn": "ADOP5Ec2Instance",
+            "Properties": {
+                "Handle": {
+                    "Ref": "ADOP5WaitConditionHandle"
+                },
+                "Timeout": "1400"
+            }
+        }
+    }
+}

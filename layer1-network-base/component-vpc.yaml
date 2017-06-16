@@ -1,0 +1,71 @@
+---
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Layer 0 - Base Infrastructure - VPC.
+
+Parameters:
+  VpcCidr:
+    Description: |
+      VPC Classless Inter-Domain Routing (CIDR) address range.
+    Type: String
+    Default: "10.0.0.0/16"
+    MinLength: "9"
+    MaxLength: "18"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Virtual Private Cloud (VPC) Configuration"
+        Parameters:
+          - VpcCidr
+    ParameterLabels:
+      VpcCidr:
+        default: "VPC Classless Inter-Domain Routing (CIDR) address range."
+
+Resources:
+  Vpc:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock:
+        Ref: VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      -
+        Key: "Name"
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "VPC" ] ]
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+      -
+        Key: "Name"
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "IGW" ] ]
+
+  AttachGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    DependsOn: "InternetGateway"
+    Properties:
+      VpcId:
+        Ref: Vpc
+      InternetGatewayId:
+        Ref: InternetGateway
+
+Outputs:
+  BaseVpcId:
+    Description: "Base VPC ID required by higher networking layers."
+    Value:
+      Ref: Vpc
+  InternetGatewayId:
+    Description: "ID of the Internet Gateway attached to the base VPC"
+    Value:
+      Ref: InternetGateway
+...

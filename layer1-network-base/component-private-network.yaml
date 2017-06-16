@@ -1,0 +1,99 @@
+---
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Layer 1 - Private Network.
+
+Parameters:
+  BaseVpcId:
+    Description: |
+      ID of the VPC where the network will be created.
+    Type: AWS::EC2::VPC::Id
+    Default: ""
+  SubnetCidr:
+    Description: |
+      Classless Inter-Domain Routing (CIDR) Range for private subnet.
+    Type: String
+    Default: "10.0.3.0/24"
+    MinLength: "9"
+    MaxLength: "18"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x"
+  NATGatewayId:
+    Description: |
+      ID of the NAT Gateway (from the output of the public network CloudFormation)
+    Type: String
+    Default: ""
+  AvailabilityZone:
+    Description: |
+      Availability zone to launch the subnet.
+    Type: AWS::EC2::AvailabilityZone::Name
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Private Network Configuration"
+        Parameters:
+          - BaseVpcId
+          - SubnetCidr
+          - NATGatewayId
+          - AvailabilityZone
+    ParameterLabels:
+      VpcCidr:
+        default: "VPC ID"
+      SubnetCidr:
+        default: "Subnet CIDR"
+      AvailabilityZone:
+        default: "Availability Zone"
+      NATGatewayId:
+        default: "NAT Gateway ID"
+
+Resources:
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: BaseVpcId
+      CidrBlock:
+        Ref: SubnetCidr
+      AvailabilityZone:
+        Ref: AvailabilityZone
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join [ "-", [ !Ref "AWS::StackName", "Private", "Subnet" ] ]
+
+  PrivateRoute:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: BaseVpcId
+
+  PrivateSubnetRouteViaNat:
+    Type: AWS::EC2::Route
+    DependsOn: "PrivateSubnet"
+    Properties:
+      RouteTableId:
+        Ref: PrivateRoute
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId:
+        Ref: NATGatewayId
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet
+      RouteTableId:
+        Ref: PrivateRoute
+
+Outputs:
+  PrivateSubnetId:
+    Description: |
+      ID of the private subnet.
+    Value:
+      Ref: PrivateSubnet
+...

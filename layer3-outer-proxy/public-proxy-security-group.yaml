@@ -1,0 +1,56 @@
+---
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Layer 2 - Public Tier ELB Proxy Security Group.
+
+Parameters:
+  BaseVpcId:
+    Description: |
+      ID of the VPC where the network will be created.
+    Type: AWS::EC2::VPC::Id
+    Default: ""
+  ProxyWhiteListCidr:
+    Description: |
+      The Cidr range of IPs to whitelist.
+      By default the Proxy is open to the world.
+    Type: String
+    Default: 0.0.0.0/0
+    MinLength: "9"
+    MaxLength: "18"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "Must be a valid IP CIDR range of the form x.x.x.x/x"
+
+Resources:
+  PublicProxySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public Proxy Security Group
+      VpcId:
+        Ref: BaseVpcId
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp:
+            Ref: ProxyWhiteListCidr
+        -
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp:
+            Ref: ProxyWhiteListCidr
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join [ "-", [ !Ref "AWS::StackName", "Public", "Proxy", "SG" ] ]
+
+Outputs:
+  PublicProxySgId:
+    Description: |
+      ID of the public proxy
+    Value:
+      Ref: PublicProxySG
+...

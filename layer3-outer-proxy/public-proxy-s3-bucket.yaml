@@ -1,0 +1,50 @@
+---
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Layer 2 - Public Tier ELB Proxy Configuration S3 Bucket.
+
+Parameters:
+  S3BucketName:
+    Description: |
+      S3 Bucket Name. Must be globally unique.
+    Type: String
+    Default: ""
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "S3 Configuation"
+        Parameters:
+          - S3BucketName
+
+    ParameterLabels:
+      S3BucketName:
+        default: "Bucket Name"
+
+Resources:
+  ProxyS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+      BucketName:
+        Ref: S3BucketName
+      VersioningConfiguration:
+        Status: "Enabled"
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join [ "-", [ !Ref "AWS::StackName", "Private", "Proxy", "Configuration", "Bucket" ] ]
+
+Outputs:
+  S3BucketName:
+    Description: |
+     S3 Bucket Name
+    Value:
+      Ref: S3BucketName
+...
