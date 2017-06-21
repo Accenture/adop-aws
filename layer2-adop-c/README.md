@@ -28,6 +28,7 @@ The service uses the AWS CloudFormation service to provision the resource requir
 # User feedback
 
 ## Documentation
+Documentation will be captured within this README.md.
 
 ## Issues
 If you have any problems with or questions about this, please raise an issue.
