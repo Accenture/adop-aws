@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Lambda function for EBS backup
+
+Parameters:
+  LambdaFunctionName:
+    Description: "Name of the Lambda function for EBS backup"
+    Type: String
+  EC2TagName:
+    Description: "The key name of tag attached to the EC2 instance/s that will be backed up."
+    Type: String
+  EC2TagValue:
+    Description: "The value of the tag attached to the EC2 instance/s that will be backed up."
+    Type: String
+  EventRuleSchedule:
+    Description: "Cron expression that will determine when the Lambda function will run. Example: 'cron(0 23 * * ? *)'"
+    Type: String
+  EventRuleScheduleName:
+    Description: "Name of the rule for scheduling the lambda funtion. Example: 'run_every_night'"
+    Type: String
+  EventRuleScheduleDescription:
+    Description: "Description of the rule for scheduling the lambda function. Example: 'Runs at 2300 every day'"
+    Type: String
+
+Resources:
+
+  EBSBackupLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSLambdaFullAccess"      
+  EBSBackupLambdaPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "ebs-backup-policy"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+        -
+          Effect: "Allow"
+          Action:
+            - "logs:*"
+          Resource: "arn:aws:logs:*:*:*"
+        -
+          Effect: "Allow"
+          Action: "ec2:Describe*"
+          Resource: "*"
+        -
+          Effect: "Allow"
+          Action:
+            - "ec2:CreateSnapshot"
+            - "ec2:DeleteSnapshot"
+            - "ec2:CreateTags"
+            - "ec2:ModifySnapshotAttribute"
+            - "ec2:ResetSnapshotAttribute"
+          Resource: "*"
+      Roles:
+        -
+          Ref: "EBSBackupLambdaRole"         
+  EBSBackupLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Description: "Lambda function for creating EBS backup"
+      FunctionName:
+        Ref: LambdaFunctionName
+      Handler: "index.lambda_handler"
+      Role:
+        Fn::GetAtt:
+          - "EBSBackupLambdaRole"
+          - "Arn"
+      Runtime: "python2.7"
+      Code:
+        ZipFile: |
+          import boto3
+          import collections
+          import datetime
+          import os
+          
+          ec = boto3.client('ec2')
+          ec2TagName='tag:{tagname}'.format(tagname=os.environ['TagName'])
+          ec2TagValue=os.environ['TagValue']
+          
+          def lambda_handler(event, context):
+              reservations = ec.describe_instances(
+                  Filters=[
+                    {'Name': ec2TagName, 'Values': [ec2TagValue]},
+                  ]
+              ).get(
+                  'Reservations', []
+              )
+              instances = sum(
+                  [
+                      [i for i in r['Instances']]
+                      for r in reservations
+                  ], [])
+              print "Found %d instances that need backing up" % len(instances)
+              to_tag = collections.defaultdict(list)
+              for instance in instances:
+                  try:
+                      retention_days = [
+                          int(t.get('Value')) for t in instance['Tags']
+                          if t['Key'] == 'Retention'][0]
+                  except IndexError:
+                      retention_days = 7
+                  for dev in instance['BlockDeviceMappings']:
+                      if dev.get('Ebs', None) is None:
+                          continue
+                      vol_id = dev['Ebs']['VolumeId']
+                      print "Found EBS volume %s on instance %s" % (
+                          vol_id, instance['InstanceId'])
+                      snap =  ec.create_snapshot(
+                          VolumeId=vol_id,
+                          Description=instance['InstanceId']
+                      )
+                      to_tag[retention_days].append(snap['SnapshotId'])
+                      print "Retaining snapshot %s of volume %s from instance %s for %d days" % (
+                          snap['SnapshotId'],
+                          vol_id,
+                          instance['InstanceId'],
+                          retention_days,
+                      )
+              for retention_days in to_tag.keys():
+                  delete_date = datetime.date.today() + datetime.timedelta(days=retention_days)
+                  delete_fmt = delete_date.strftime('%Y-%m-%d')
+                  print "Will delete %d snapshots on %s" % (len(to_tag[retention_days]), delete_fmt)
+                  ec.create_tags(
+                      Resources=to_tag[retention_days],
+                      Tags=[
+                          {'Key': 'DeleteOn', 'Value': delete_fmt},
+                      ]
+                  )
+         
+              # Delete snapshots
+              delete_on = datetime.date.today().strftime('%Y-%m-%d')
+              filters = [
+                  {'Name': 'tag-key', 'Values': ['DeleteOn']},
+                  {'Name': 'tag-value', 'Values': [delete_on]},
+              ]
+          
+              snapshot_response = ec.describe_snapshots(Filters=filters)
+              for snap in snapshot_response['Snapshots']:
+                  print "Deleting snapshot %s" % snap['SnapshotId']
+                  ec.delete_snapshot(SnapshotId=snap['SnapshotId'])
+
+      Environment:
+        Variables:
+          TagName:
+            Ref: EC2TagName
+          TagValue:
+            Ref: EC2TagValue
+  EBSBackupLambdaScheduledRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name:
+        Ref: EventRuleScheduleName
+      Description:
+        Ref: EventRuleScheduleDescription
+      ScheduleExpression:
+        Ref: EventRuleSchedule
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: 
+            Fn::GetAtt: 
+              - "EBSBackupLambdaFunction"
+              - "Arn"
+          Id: Lambda_Function
+  PermissionForEventsToInvokeLambda: 
+    Type: "AWS::Lambda::Permission"
+    Properties: 
+      FunctionName: 
+        Ref: "LambdaFunctionName"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        Fn::GetAtt: 
+          - "EBSBackupLambdaScheduledRule"
+          - "Arn"  
+
+Outputs:
+  EBSBackupLambdaFunctionName:
+    Description: "Lambda function created for EBS backup"
+    Value:
+      !Ref EBSBackupLambdaFunction
+  CloudWatchEventRuleName:
+    Description: "Rule schedule created for EBS backup Lambda function"
+    Value:
+      !Ref EBSBackupLambdaScheduledRule
