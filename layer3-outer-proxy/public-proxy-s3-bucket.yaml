@@ -3,7 +3,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: |
-  Layer 2 - Public Tier ELB Proxy Configuration S3 Bucket.
+  Layer 3 - Public Tier ELB Proxy Configuration S3 Bucket.
 
 Parameters:
   S3BucketName:

@@ -3,7 +3,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: |
-  Layer 2 - Public Tier Outer Proxy Service
+  Layer 3 - Public Tier Outer Proxy Service
 
 Parameters:
   BaseVpcId:
@@ -15,10 +15,6 @@ Parameters:
     Description: |
       Comma-delimited list of public subnets.
     Type: List<AWS::EC2::Subnet::Id>
-  VpnSecurityGroup:
-    Description: |
-      Vpn Security Group for administrating EC2 instances (output from the OpenVPN service CloudFormation)
-    Type: AWS::EC2::SecurityGroup::Id
   SSLCertificateARN:
     Description: |
       ARN of the SSL certificate to use for the ELB. Note: ELB Offloads SSL for the outer proxy.
@@ -47,18 +43,16 @@ Parameters:
   InternalProxyDnsName:
     Type: String
     Description: |
-      The internal proxy DNS name/address (your ADOP/C proxy private IP)
+      The internal DNS name/address (your ADOP/C private IP)
     Default: ""
-  NATGatewayIdEipIP1:
-    Description: |
-      NAT Gateway Elastic IP IPv4 Address and Cidr 1 e.g. 54.1.1.1/32 (output of the public network CloudFormation)
-    Type: String
-    Default: ""
-  NATGatewayIdEipIP2:
-    Description: |
-      NAT Gateway Elastic IP IPv4 Address and Cidr 2 e.g. 54.2.3.4/32 (output of the public network CloudFormation)
-    Type: String
-    Default: ""
+  NATGatewayIdEipIP1:    
+     Description: |    
+       NAT Gateway Elastic IP IPv4 Address and /32 Cidr 1 e.g. 54.1.1.1/32 (output of the pre-requisite EIP CloudFormation)
+     Type: String
+  NATGatewayIdEipIP2:    
+     Description: |    
+       NAT Gateway Elastic IP IPv4 Address and /32 Cidr 2 e.g. 54.1.1.1/32 (output of the pre-requisite EIP CloudFormation)
+     Type: String  
   VpcAvailabilityZones:
     Description: |
       Comma-delimited list of Two Availability zones of the public subnets in the VPC.
@@ -69,16 +63,18 @@ Parameters:
       Proxy Configuration S3 Bucket Name.
     Type: String
     Default: ""
-  ProxyConfigS3BucketPath:
+  ProxyConfigS3Url:
     Description: |
-      Proxy configuration S3 Bucket path.
-    Type: String
-    Default: "conf"
-  ProxyConfigS3BucketRegion:
-    Description: |
-      S3 Bucket region.
+      S3 URL of your base.conf file in the format s3://<BUCKET_NAME>/<DIRECTORY_PATH>/base.conf
     Type: String
     Default: ""
+  NtpRegion:
+    Description: |
+      The geographical NTP region where your NTP server is located (can be a continent or a country). 
+      This will appear in your /etc/ntp.conf file such as "server [1:4].<NtpRegion>.pool.ntp.org".
+      Please refer here http://www.pool.ntp.org/en/
+    Type: String
+    Default: europe
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -100,16 +96,19 @@ Metadata:
           - OuterProxyKeyPairName
           - ProxyInstanceType
           - PublicProxySG
-          - ProxyConfigS3BucketPath
           - ProxyConfigS3BucketName
-          - ProxyConfigS3BucketRegion
+          - ProxyConfigS3Url
       -
         Label:
           default: "Security Groups"
         Parameters:
           - NATGatewayIdEipIP1
           - NATGatewayIdEipIP2
-          - VpnSecurityGroup
+      -
+        Label:
+          default: NTP Configuration
+        Parameters:
+          - NtpRegion
     ParameterLabels:
       BaseVpcId:
         default: "Base VPC ID"
@@ -124,23 +123,21 @@ Metadata:
       OuterProxyClusterSize:
         default: "Outer Proxy Desired Size"
       OuterProxyKeyPairName:
-        default: "Outer Proxy Instance Kaypair"
+        default: "Outer Proxy Instance Keypair"
       ProxyInstanceType:
         default: "Outer Proxy Instance Type"
       PublicProxySG:
         default: "Proxy SG ID"
-      ProxyConfigS3BucketPath:
-        default: "Proxy Config S3 Bucket path"
       ProxyConfigS3BucketName:
         default: "Proxy Config S3 Bucket name"
-      ProxyConfigS3BucketRegion:
-        default: "Proxy Config S3 Bucket region"
+      ProxyConfigS3Url:
+        default: "S3 URL of your base.conf file"
+      NtpRegion:
+        default: "Geographical region of your NTP server"
       NATGatewayIdEipIP1:
         default: "NAT Gateway ID 1 IP CIDR"
       NATGatewayIdEipIP2:
         default: "NAT Gateway ID 2 IP CIDR"
-      VpnSecurityGroup:
-        default: "VPN SG ID"
 
 Mappings:
   RegionMap:
@@ -148,16 +145,20 @@ Mappings:
       AMI: ami-9bf712f4
     eu-west-1:
       AMI: ami-7abd0209
+    eu-west-2:
+      AMI: ami-bb373ddf
     us-east-1:
       AMI: ami-6d1c2007
     us-west-2:
       AMI: ami-d2c924b2
     us-west-1:
       AMI: ami-af4333cf
+    ap-southeast-1:
+      AMI: ami-f068a193
     ap-southeast-2:
       AMI: ami-fedafc9d
-    eu-west-2:
-      AMI: ami-bb373ddf
+    ap-south-1:
+      AMI: ami-95cda6fa
 
 Resources:
   PublicElbSG:
@@ -195,6 +196,12 @@ Resources:
         -
           Key: "Name"
           Value: !Join [ "-", [ !Ref "AWS::StackName", "Public", "ELB", "SG" ] ]
+        - Key: Service
+          Value: ADOP-C
+        - Key: NetworkTier
+          Value: public
+        - Key: "ServiceComponent"
+          Value: "proxy"
 
   OuterProxySG:
     Type: AWS::EC2::SecurityGroup
@@ -203,24 +210,6 @@ Resources:
       VpcId:
         Ref: BaseVpcId
       SecurityGroupIngress:
-        -
-          IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId:
-            Ref: VpnSecurityGroup
-        -
-          IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          SourceSecurityGroupId:
-            Ref: VpnSecurityGroup
-        -
-          IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          SourceSecurityGroupId:
-            Ref: VpnSecurityGroup
         -
           IpProtocol: tcp
           FromPort: 80
@@ -296,9 +285,9 @@ Resources:
           Resource:
           - Fn::Join:
             - ''
-            - - 'arn:aws:s3:::'
+            - - "arn:aws:s3:::"
               - Ref: ProxyConfigS3BucketName
-          Effect: Allow
+              - "/*"
       PolicyName: S3Download
       Roles:
       - Ref: S3DownloadRole
@@ -339,8 +328,8 @@ Resources:
         -
           DeviceName: "/dev/sda2"
           Ebs:
-            DeleteOnTermination: "true"
-            VolumeSize: 50
+            DeleteOnTermination: "false"
+            VolumeSize: 30
             VolumeType: "gp2"
       InstanceType:
         Ref: ProxyInstanceType
@@ -368,7 +357,16 @@ Resources:
           gpgkey=https://yum.dockerproject.org/gpg
           EOF
 
-          yum -y install lvm2 git docker-engine-1.10.3-1.el7.centos.x86_64
+          yum -y install lvm2 git docker-engine-1.12.6-1.el7.centos.x86_64 ntp
+          
+          echo '################## Configuring NTP ##################'
+          sed -i "s/centos/${NtpRegion}/g" /etc/ntp.conf
+          systemctl start ntpd
+          systemctl enable ntpd
+          systemctl status ntpd
+          sleep 20
+          ntpq -p
+          ntpstat
 
           echo "################## Installing AWS CLI ##################"
 
@@ -380,20 +378,19 @@ Resources:
 
           echo "################## Creating volumes ##################"
           pvcreate /dev/xvdb
-          vgcreate vg-docker /dev/xvdb\n
-          lvcreate -l 95%VG -n data vg-docker
-          lvcreate -l 5%VG -n metadata vg-docker
-
-          echo "################## Configurting Docker Daemon ##################"
+          vgcreate vg-docker /dev/xvdb
+          while [ $(lvs vg-docker/data &> /dev/null; echo $?) -ne 0 ]; do lvcreate -l 95%VG -n data vg-docker; done
+          while [ $(lvs vg-docker/metadata &> /dev/null; echo $?) -ne 0 ]; do lvcreate -l 5%VG -n metadata vg-docker; done
+          
+          echo "################## Configuring Docker Daemon ##################"
 
           sed -i 's/ExecStart\\(.*\\)$/ExecStart\\1 --storage-driver=devicemapper --storage-opt dm.datadev=\\/dev\\/vg-docker\\/data --storage-opt dm.metadatadev=\\/dev\\/vg-docker\\/metadata/g' /usr/lib/systemd/system/docker.service
           systemctl daemon-reload && systemctl restart docker
 
           echo "################## Running Containers ##################"
 
-          mkdir -p /data/config/proxy
-          cd /data/config/proxy/
-          aws s3 cp --recursive s3://${ProxyConfigS3BucketName}/${ProxyConfigS3BucketPath}/ . --region ${ProxyConfigS3BucketRegion}
+          mkdir -p /data/config/proxy/sites-enabled && cd /data/config/proxy/sites-enabled
+          aws s3 cp ${ProxyConfigS3Url} base.conf && cd ..
           chmod -R 777 ./*
           docker run --restart="always" -p 80:80 -d -v $(pwd)/sites-enabled/:/usr/local/nginx/sites-enabled/ -e TARGET=${InternalProxyDnsName} --name=outer-proxy-nginx -d accenture/adop-outer-proxy:0.2.1
 

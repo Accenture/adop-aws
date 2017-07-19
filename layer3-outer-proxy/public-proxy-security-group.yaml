@@ -3,7 +3,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: |
-  Layer 2 - Public Tier ELB Proxy Security Group.
+  Layer 3 - Public Tier ELB Proxy Security Group.
 
 Parameters:
   BaseVpcId:
