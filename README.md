@@ -9,7 +9,8 @@ The CloudFormation templates in this repository implement the following network 
 The architecture has been decomposed into the following fine-grained layers.
  * Layer 1 - Base networking (VPC, Subnets)
  * Layer 2 - Private Services (ADOP/C)
- * Layer 3 - Public Services (Outer Proxy, OpenVPN)
+ * Layer 3 - Public Proxy
+ * Layer 4 - OpenVPN
 
 
 ## Pre
@@ -30,4 +31,8 @@ Provisions your ADOP/C instance in a private subnet.
 
 ## Layer 3
 
-Defines outer proxy and OpenVPN service that support the infrastructure.
+Defines outer proxy service which supports the infrastructure.
+
+## Layer 4
+
+Defines OpenVPN service which supports the infrastructure.

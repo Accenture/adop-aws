@@ -1,0 +1,481 @@
+---
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  OpenVPN Access Server 2.1.4 (10/26/2016) Service Template for the DevOps Platform (ADOP).
+
+Parameters:
+  ElasticIP:
+    Description: |
+      The IPv4 address of the Elastic IP (EIP) to assign to the OpenVPN EC2 Instance.
+      If an EIP is not provided a public IP is allocated. Note: restarting the instance will
+      result in this public IP updating.
+    Type: String
+    Default: ""
+  OpenVpnServerFQDN:
+    Description: |
+      The fully-qualified domain name (FQDN) for the OpenVPN to use (e.g. vpn.example.com).
+      Use the ElasticIP IPv4 address if you do not have a domain name.
+      Leave this parameter blank if you have opted for an auto-assigned IPv4 address.
+    Type: String
+    Default: ""
+  InstanceType:
+    Description: |
+      The OpenVPN EC2 instance type.
+      It is recommend an instance type with support for enhanced networking is selected due to there support for high throughput and low network latency.
+      See https://aws.amazon.com/ec2/instance-types/ for more information.
+    Type: String
+    Default: "m4.large"
+  OpenVPNKeyPair:
+    Description: |
+      The OpenVPN Key pair name.
+    Type: AWS::EC2::KeyPair::KeyName
+  VpcId:
+    Description: |
+      The VPC IP with ADOP/C provisioned.
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Description: |
+      The subnet id of the ADOP/C public subnet.
+    Type: AWS::EC2::Subnet::Id
+  VpnIpWhiteListCidr:
+    Description: |
+      The Cidr range of IPs to whitelist.
+      By default the VPN is open to the world.
+    Type: String
+    Default: 0.0.0.0/0
+  OpenVpnAdminUserUsername:
+      Description: |
+       Initial OpenVPN service admin user username.
+      Type: String
+      NoEcho: true
+  OpenVpnAdminUserPassword:
+    Description: |
+       Initial OpenVPN service admin user password. Please choose a strong password.
+    Type: String
+    NoEcho: true
+  OpenVpnLicenseType:
+      Description: |
+        The OpenVPN License type. See OpenVPN Access Server AMI in the market place for AWS charges/OpenVPN license costs.
+        Options: Bring your own license (BYOL), 10/25/50/100 connected devices respectively.
+      Type: String
+      Default: "BYOL"
+      AllowedValues:
+        -
+          BYOL
+        -
+          10
+        -
+          25
+        -
+          50
+        -
+          100
+        -
+          250
+  OpenVpnSplitTunnel:
+    Description: |
+      True if the OpenVPN is a split tunnel, else false. A VPN is considered to be a split tunnel if it only routes private traffic over the tunnel and not the traffic destined for the default gateway.
+    Default: false
+    Type: String
+    AllowedValues:
+      -
+        true
+      -
+        false
+  LdapServerURL:
+    Description: |
+      LDAP server or proxy endpoint e.g. <host>:389
+    Type: String
+  LdapSSLEnabled:
+      Description: |
+        Connect to LDAP via SSL. Select 'never' if SSL is not enabled else 'always'.
+      Type: String
+      Default: "never"
+      AllowedValues:
+        -
+          never
+        -
+          always
+  LdapBindDn:
+    Description: |
+      LDAP server Admin BindDn
+    Default: "cn=admin,dc=ldap,dc=example,dc=com"
+    Type: String
+  LdapBindDnPassword:
+    Description: |
+      LDAP server Admin bind DN password.
+    Type: String
+    NoEcho: true
+  LdapUsersBaseDn:
+      Description: |
+        Users base distinguished name.
+      Type: String
+      Default: "ou=people,dc=ldap,dc=example,dc=com"
+  LdapLoginAttribute:
+    Description: |
+      User login attribute from the LDAP directory schema.
+    Type: String
+    Default: "uid"
+  LdapVpnGroupMembership:
+    Description: |
+      LDAP VPN group membership query (e.g. memberOf=cn=vpn,ou=groups,dc=ldap,dc=example,dc=com)
+      Leave this parameter empty if you do not want to restrict access to the Open VPN from a particular group.
+    Type: String
+    Default: ""
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "OpenVPN Light-weight directory access protocol (LDAP) Configuration"
+        Parameters:
+          - LdapServerURL
+          - LdapSSLEnabled
+          - LdapBindDn
+          - LdapBindDnPassword
+          - LdapUsersBaseDn
+          - LdapLoginAttribute
+          - LdapVpnGroupMembership
+      -
+        Label:
+          default: "OpenVPN VPN EC2 Configuration"
+        Parameters:
+          - ElasticIP
+          - InstanceType
+          - OpenVpnLicenseType
+          - OpenVpnServerFQDN
+          - OpenVPNKeyPair
+          - OpenVpnAdminUserUsername
+          - OpenVpnAdminUserPassword
+          - OpenVpnSplitTunnel
+      -
+        Label:
+          default: "Network Configuration"
+        Parameters:
+          - VpcId
+          - SubnetId
+          - VpnIpWhiteListCidr
+    ParameterLabels:
+      LdapBindDn:
+        default: "Bind DN"
+      LdapServerURL:
+        default: "Server URL"
+      LdapSSLEnabled:
+        default: "SSL enabled"
+      LdapUsersBaseDn:
+        default: "Users base DN"
+      LdapBindDnPassword:
+        default: "Bind DN password"
+      LdapLoginAttribute:
+        default: "Login attribute"
+      LdapVpnGroupMembership:
+        default: "VPN Group"
+      ElasticIP:
+        default: "Elastic IP"
+      InstanceType:
+        default: "Instance type"
+      OpenVpnServerFQDN:
+        default: "Open VPN Server fully-qualified domain name."
+      OpenVPNKeyPair:
+        default: "Open VPN Key pair name"
+      OpenVpnLicenseType:
+        default: "Open VPN license type"
+      VpcId:
+        default: "VPC ID"
+      SubnetId:
+        default: "Public Subnet ID"
+      VpnIpWhiteListCidr:
+        default: "Vpn IP whitelist"
+      OpenVpnAdminUserUsername:
+        default: "OpenVpn admin user username"
+      OpenVpnAdminUserPassword:
+        default: "OpenVpn admin user password"
+      OpenVpnSplitTunnel:
+        default: "OpenVPN Split tunnel"
+
+Mappings:
+  LicenseMap:
+    eu-west-1:
+      BYOL: "ami-07783674"
+      '10': "ami-7a793709"
+      '25': "ami-40763833"
+      '50': "ami-a57b35d6"
+      '100': 'ami-717b3502'
+      '250': "ami-24752f57"
+    us-east-1:
+      BYOL: "ami-44aaf953"
+      '10': "ami-b4affca3"
+      '25': "ami-65a9fa72"
+      '50': "ami-78aaf96f"
+      '100': "ami-e4a8fbf3"
+      '250': "ami-2b0b0a3c"
+    us-east-2:
+      BYOL: "ami-ae3e64cb"
+      '10': "ami-5f3f653a"
+      '25': "ami-b63b61d3"
+      '50': "ami-94075df1"
+      '100': "ami-a93e64cc"
+      '250': "ami-5caaf039"
+    us-west-1:
+      BYOL: "ami-fa105b9a"
+      '10': "ami-42165d22"
+      '25': "ami-57175c37"
+      '50': "ami-1c12597c"
+      '100': "ami-45165d25"
+      '250': "ami-97ca9df7"
+    us-west-2:
+      BYOL: "ami-e8d67288"
+      '10': "ami-a6d773c6"
+      '25': "ami-85c3c9e1"
+      '50': "ami-abd773cb"
+      '100': "ami-31d17551"
+      '250': "ami-46ac0726"
+    ap-northeast-2:
+      BYOL: "ami-b6e733d8"
+      '10': "ami-dbe337b5"
+      '25': "ami-cde236a3"
+      '50': "ami-4d38a521"
+      '100': "ami-f3e1359d"
+      '250': "ami-d329febd"
+    ap-southeast-1:
+      BYOL: "ami-d72a8cb4"
+      '10': "ami-33369050"
+      '25': "ami-15288e76"
+      '50': "ami-d62a8cb5"
+      '100': "ami-06369065"
+      '250': "ami-9a913df9"
+    ap-southeast-2:
+      BYOL: "ami-5e3b063d"
+      '10': "ami-d33b06b0"
+      '25': "ami-fb340998"
+      '50': "ami-393a075a"
+      '100': "ami-f0350893"
+      '250': "ami-59477f3a"
+    ap-northeast-1:
+      BYOL: "ami-2f66c04e"
+      '10': "ami-2967c148"
+      '25': "ami-ec983e8d"
+      '50': "ami-499a3c28"
+      '100': "ami-489a3c29"
+      '250': "ami-282a474f"
+    eu-central-1:
+      BYOL: "ami-3f788150"
+      '10': "ami-0207fe6d"
+      '25': "ami-1d798072"
+      '50': "ami-e206ff8d"
+      '100': "ami-0107fe6e"
+      '250': "ami-b32ceadc"
+    eu-west-2:
+      BYOL: "ami-86c3c9e2"
+      '10': "ami-a3c1cbc7"
+      '25': "ami-85c3c9e1"
+      '50': "ami-a1c5cfc5"
+      '100': "ami-83c1cbe7"
+      '250': "ami-53c5cf37"
+    ca-central-1:
+      BYOL: "ami-24ad1f40"
+      '10': "ami-3fa5175b"
+      '25': "ami-3da81a59"
+      '50': "ami-22a71546"
+      '100': "ami-25ab1941"
+      '250': "ami-234af847"
+    ap-south-1:
+      BYOL: "ami-066f1b69"
+      '10': "ami-6354200c"
+      '25': "ami-076f1b68"
+      '50': "ami-2455214b"
+      '100': "ami-896a1ee6"
+      '250': "ami-46bdca29"
+    sa-east-1:
+      BYOL: "ami-283fa244"
+      '10': "ami-1e34a972"
+      '25': "ami-e43ea388"
+      '50': "ami-4d38a521"
+      '100': "ami-1d3aa771"
+      '250': "ami-c355ccaf"
+
+Resources:
+  OpenVPNSecurtyGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the OpenVPN EC2 instance.
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+      - ToPort: 443
+        FromPort: 443
+        IpProtocol: tcp
+        CidrIp:
+          Ref: VpnIpWhiteListCidr
+      - ToPort: 1194
+        FromPort: 1194
+        IpProtocol: tcp
+        CidrIp:
+          Ref: VpnIpWhiteListCidr
+      - ToPort: 943
+        FromPort: 943
+        IpProtocol: tcp
+        CidrIp: "172.27.224.0/20"
+
+  OpenVpnEc2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName:
+        Ref: "OpenVPNKeyPair"
+      BlockDeviceMappings:
+        -
+          DeviceName: "/dev/sda1"
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 8
+      InstanceType:
+        Ref: InstanceType
+      ImageId: !FindInMap [LicenseMap, !Ref "AWS::Region", !Ref OpenVpnLicenseType]
+      NetworkInterfaces:
+        -
+          DeleteOnTermination: true
+          Description: "Primary Network Interface"
+          DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          SubnetId:
+            Ref: SubnetId
+          GroupSet:
+            -
+              Ref: OpenVPNSecurtyGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -x
+
+          admin_user=${OpenVpnAdminUserUsername}
+          admin_pw="${OpenVpnAdminUserPassword}"
+
+          # Route user DNS queries through the VPN
+          reroute_dns=1
+
+          systemctl enable openvpnas
+          systemctl start openvpnas
+
+          # Wait for OpenVPN to initialise
+          sleep 30
+
+          echo "##################### Generating Initial self-signed SSL Certificates #####################"
+
+          /usr/local/openvpn_as/scripts/certool -d /usr/local/openvpn_as/etc/web-ssl --type ca --unique --cn "ADOP OpenVPN Web CA"
+
+          OPENVPN_FQDN=${OpenVpnServerFQDN}
+
+          if [ "$OPENVPN_FQDN" == "" ]; then
+            OPENVPN_FQDN=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+          fi
+
+          echo "[INFO] - OpenVPN FQDN: $OPENVPN_FQDN"
+
+          /usr/local/openvpn_as/scripts/certool -d /usr/local/openvpn_as/etc/web-ssl --type server --remove_csr --sn_off --serial 1 --name server --cn $OPENVPN_FQDN
+
+          openssl dhparam -dsaparam -out /home/openvpnas/dh.pem 4096
+          /usr/local/openvpn_as/scripts/confdba -mk external_pki.dh_pem --value_file /home/openvpnas/dh.pem
+
+          echo "##################### Configuring OpenVPN #####################"
+
+          if [ "${OpenVpnSplitTunnel}" == "true" ]; then
+            # Split tunnel
+            /usr/local/openvpn_as/scripts/sacli --key vpn.client.routing.reroute_gw --value false ConfigPut
+          else
+            # Route Internet traffic through the VPN
+            /usr/local/openvpn_as/scripts/sacli --key vpn.client.routing.reroute_gw --value true ConfigPut
+          fi
+
+          /usr/local/openvpn_as/scripts/sacli --key vpn.client.tls_version_min --value 1.2 ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key vpn.server.tls_version_min --value 1.2 ConfigPut
+
+          /usr/local/openvpn_as/scripts/sacli --key auth.module.type --value ldap ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.server.0.host --value ${LdapServerURL} ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.bind_dn --value ${LdapBindDn} ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.bind_pw --value ${LdapBindDnPassword} ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.name --value ADOP-C-LDAP ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.users_base_dn --value ${LdapUsersBaseDn} ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.uname_attr --value ${LdapLoginAttribute} ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.use_ssl --value ${LdapSSLEnabled} ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key vpn.server.google_auth.enable --value true ConfigPut
+
+          # Ensure admin console is not exposed over the Internet.
+          /usr/local/openvpn_as/scripts/sacli --key vpn.server.port_share.service  --value "client" ConfigPut
+
+          LDAP_GROUP_MEMBERSHIP=${LdapVpnGroupMembership}
+
+          if [ "$LDAP_GROUP_MEMBERSHIP" != "" ]; then
+            /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.add_req --value $LDAP_GROUP_MEMBERSHIP ConfigPut
+          fi
+
+          /usr/local/openvpn_as/scripts/sacli --key vpn.server.session_ip_lock --value true ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key vpn.server.lockout_policy.n_fails --value 3 ConfigPut
+          /usr/local/openvpn_as/scripts/sacli --key vpn.server.lockout_policy.reset_time --value 900 ConfigPut
+
+          echo "##################### Restart OpenVPN #####################"
+
+          /usr/local/openvpn_as/scripts/sacli start
+
+          echo "##################### Sanitizing OpenVPN Cloud-Init logs #####################"
+
+          sed -i s/${LdapBindDnPassword}/LDAP_BIND_DN_PASSWORD/g /var/lib/cloud/instance/scripts/part-001
+          sed -i s/admin_user=${OpenVpnAdminUserUsername}/OPENVPN_ADMIN_USER_USERNAME/g /var/lib/cloud/instance/scripts/part-001
+          sed -i s/admin_pw=${OpenVpnAdminUserPassword}/OPENVPN_ADMIN_USER_USERNAME/g /var/lib/cloud/instance/scripts/part-001
+
+          sed -i s/${LdapBindDn}/LDAP_ADMIN_BIND_DN/g /var/log/cloud-init.log
+          sed -i s/admin_user=${OpenVpnAdminUserUsername}/OPENVPN_ADMIN_USER_USERNAME/g /var/log/cloud-init.log
+          sed -i s/admin_pw=${OpenVpnAdminUserPassword}/OPENVPN_ADMIN_USER_USERNAME/g /var/log/cloud-init.log
+
+          echo "##################### OpenVPN setup complete #####################"
+
+          curl -X PUT -H 'Content-Type:' --data-binary '{"Status": "SUCCESS","Reason": "OpenVPN Access Service is ready","UniqueId": "OpenVpnEc2Instance","Data": "Done"}' "${OpenVpnWaitHandle}"
+
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join [ "-", [ !Ref "AWS::StackName", "OpenVPN" ] ]
+        -
+          Key: "Service"
+          Value: "openVPN"
+        -
+          Key: "ServiceComponent"
+          Value: "applicationService"
+        -
+          Key: "NetworkTier"
+          Value: "public"
+
+  OpenVPNEipAssociation:
+    Type: "AWS::EC2::EIPAssociation"
+    Condition: AssignOpenVPNEip
+    Properties:
+      EIP:
+        Ref: ElasticIP
+      InstanceId:
+        Ref: OpenVpnEc2Instance
+
+  OpenVpnWaitHandle:
+    Type: "AWS::CloudFormation::WaitConditionHandle"
+
+  OpenVpnWaitCondition:
+    Type: "AWS::CloudFormation::WaitCondition"
+    DependsOn:
+       -
+         OpenVpnEc2Instance
+    Properties:
+      Handle:
+        Ref: OpenVpnWaitHandle
+      Timeout: 1800
+
+Conditions:
+  AssignOpenVPNEip: !Not [ !Equals [ !Ref ElasticIP, "" ] ]
+
+Outputs:
+  OpenVpnManagementConsole:
+    Description: OpenVpn Management Console Access URL
+    Value: !Join ["", [ "https://", !GetAtt OpenVpnEc2Instance.PrivateIp, ":943/admin" ]]
+  OpenVpnLoginUrl:
+      Description: OpenVpn Management User Login URL
+      Value: !Join ["", [ "https://", !GetAtt OpenVpnEc2Instance.PublicIp, ":443/" ]]
+...
