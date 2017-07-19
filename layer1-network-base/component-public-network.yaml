@@ -13,7 +13,7 @@ Parameters:
     Default: ""
   SubnetCidr1:
     Description: |
-      Classless Inter-Domain Routing (CIDR) Range for private subnet 1. 
+      Classless Inter-Domain Routing (CIDR) Range for public subnet 1. 
       Note - Make sure the range is within the CIDR range of the VPC we have choosen with BaseVpcId and does not clash with eny existing subnets in this VPC.
     Type: String
     Default: "10.0.1.0/27"
@@ -23,7 +23,7 @@ Parameters:
     ConstraintDescription: "Must be a valid CIDR range of the form x.x.x.x/x"
   SubnetCidr2:
     Description: |
-      Classless Inter-Domain Routing (CIDR) Range for private subnet 2.
+      Classless Inter-Domain Routing (CIDR) Range for public subnet 2.
       Note - Make sure the range is within the CIDR range of the VPC we have choosen with BaseVpcId and does not clash with eny existing subnets in this VPC.
     Type: String
     Default: "10.0.2.0/27"
@@ -167,11 +167,11 @@ Outputs:
     Value:
       Ref: NatGatewayAz2
   PublicSubnetAz1:
-    Description: ID of the public subnet in AZ 1
+    Description: "ID of the public subnet in AZ 1"
     Value:
       Ref: PublicSubnetAz1
   PublicSubnetAz2:
-    Description: ID of the public subnet in AZ 2
+    Description: "ID of the public subnet in AZ 2"
     Value:
       Ref: PublicSubnetAz2
 ...
