@@ -23,7 +23,7 @@ Parameters:
   InstanceType:
     Description: |
       The OpenVPN EC2 instance type.
-      It is recommend an instance type with support for enhanced networking is selected due to there support for high throughput and low network latency.
+      It is recommend an instance type with support for enhanced networking is selected given the advantage of high throughput and low network latency.
       See https://aws.amazon.com/ec2/instance-types/ for more information.
     Type: String
     Default: "m4.large"
@@ -39,12 +39,11 @@ Parameters:
     Description: |
       The subnet id of the ADOP/C public subnet.
     Type: AWS::EC2::Subnet::Id
-  VpnIpWhiteListCidr:
+  OpenVPNSecurityGroup:
     Description: |
-      The Cidr range of IPs to whitelist.
-      By default the VPN is open to the world.
-    Type: String
-    Default: 0.0.0.0/0
+      Security group for OpenVPN Access Server
+      Created in previous template service-openvpn-access-server-security-group.yaml
+    Type: AWS::EC2::SecurityGroup::Id
   OpenVpnAdminUserUsername:
       Description: |
        Initial OpenVPN service admin user username.
@@ -58,7 +57,7 @@ Parameters:
   OpenVpnLicenseType:
       Description: |
         The OpenVPN License type. See OpenVPN Access Server AMI in the market place for AWS charges/OpenVPN license costs.
-        Options: Bring your own license (BYOL), 10/25/50/100 connected devices respectively.
+        Options: Bring your own license (BYOL), 10/25/50/100/250 connected devices respectively.
       Type: String
       Default: "BYOL"
       AllowedValues:
@@ -100,12 +99,12 @@ Parameters:
           always
   LdapBindDn:
     Description: |
-      LDAP server Admin BindDn
+      LDAP server BindDn (by default for ADOP/C, this is cn=admin,dc=ldap,dc=example,dc=com)
     Default: "cn=admin,dc=ldap,dc=example,dc=com"
     Type: String
   LdapBindDnPassword:
     Description: |
-      LDAP server Admin bind DN password.
+      LDAP server Admin bind DN password (The value of LDAP_PWD in your platform.secrets.sh file)
     Type: String
     NoEcho: true
   LdapUsersBaseDn:
@@ -157,7 +156,7 @@ Metadata:
         Parameters:
           - VpcId
           - SubnetId
-          - VpnIpWhiteListCidr
+          - OpenVPNSecurityGroup
     ParameterLabels:
       LdapBindDn:
         default: "Bind DN"
@@ -187,8 +186,8 @@ Metadata:
         default: "VPC ID"
       SubnetId:
         default: "Public Subnet ID"
-      VpnIpWhiteListCidr:
-        default: "Vpn IP whitelist"
+      OpenVPNSecurityGroup:
+        default: "OpenVPN Access Server Security Group"
       OpenVpnAdminUserUsername:
         default: "OpenVpn admin user username"
       OpenVpnAdminUserPassword:
@@ -298,27 +297,6 @@ Mappings:
       '250': "ami-c355ccaf"
 
 Resources:
-  OpenVPNSecurtyGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for the OpenVPN EC2 instance.
-      VpcId:
-        Ref: VpcId
-      SecurityGroupIngress:
-      - ToPort: 443
-        FromPort: 443
-        IpProtocol: tcp
-        CidrIp:
-          Ref: VpnIpWhiteListCidr
-      - ToPort: 1194
-        FromPort: 1194
-        IpProtocol: tcp
-        CidrIp:
-          Ref: VpnIpWhiteListCidr
-      - ToPort: 943
-        FromPort: 943
-        IpProtocol: tcp
-        CidrIp: "172.27.224.0/20"
 
   OpenVpnEc2Instance:
     Type: AWS::EC2::Instance
@@ -344,7 +322,7 @@ Resources:
             Ref: SubnetId
           GroupSet:
             -
-              Ref: OpenVPNSecurtyGroup
+              Ref: OpenVPNSecurityGroup
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -x

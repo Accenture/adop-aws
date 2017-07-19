@@ -1,0 +1,99 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Security Group template for OpenVPN Access Server, with access to LDAP and proxy.
+
+Parameters:
+  VpcId:
+    Description: |
+      The VPC IP with ADOP/C provisioned.
+    Type: AWS::EC2::VPC::Id
+  LDAPSG:
+    Description: Security Group your LDAP instance is running in e.g. ADOP/C SecurityGroup (REQUIRED)
+    Type: AWS::EC2::SecurityGroup::Id
+  ProxySG:
+    Description: |
+      SecurityGroup for your outer Proxy instance 
+      Set this to a random security group if you do not have an outer proxy yet
+    Type: AWS::EC2::SecurityGroup::Id
+  VpnIpWhiteListCidr:
+    Description: |
+      The Cidr range of IPs to whitelist.
+      By default the VPN is open to the world.
+    Type: String
+    Default: 0.0.0.0/0
+
+Resources:
+  
+  OpenVPNSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the OpenVPN EC2 instance.
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+      - ToPort: 443
+        FromPort: 443
+        IpProtocol: tcp
+        CidrIp:
+          Ref: VpnIpWhiteListCidr
+      - ToPort: 1194
+        FromPort: 1194
+        IpProtocol: tcp
+        CidrIp:
+          Ref: VpnIpWhiteListCidr
+      - ToPort: 943
+        FromPort: 943
+        IpProtocol: tcp
+        CidrIp: "172.27.224.0/20"
+
+  LDAPBaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: LDAPSG
+      IpProtocol: tcp
+      FromPort: '389'
+      ToPort: '389'
+      SourceSecurityGroupId:
+        Ref: OpenVPNSecurityGroup
+
+  ProxyBaseIngress1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: ProxySG
+      IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      SourceSecurityGroupId:
+        Ref: OpenVPNSecurityGroup
+  ProxyBaseIngress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: ProxySG
+      IpProtocol: tcp
+      FromPort: '80'
+      ToPort: '80'
+      SourceSecurityGroupId:
+        Ref: OpenVPNSecurityGroup
+  ProxyBaseIngress3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: ProxySG
+      IpProtocol: tcp
+      FromPort: '443'
+      ToPort: '443'
+      SourceSecurityGroupId:
+        Ref: OpenVPNSecurityGroup
+
+Outputs:
+  PublicProxySgId:
+    Description: |
+      ID of the OpenVPN Security Group
+    Value:
+      Ref: OpenVPNSecurityGroup
+...
