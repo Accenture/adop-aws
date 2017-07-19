@@ -11,6 +11,7 @@ Metadata:
         Parameters:
           - AdopUsername
           - AdopUserPassword
+          - SecretS3BucketStore
       -
         Label:
           default: Network Configuration
@@ -23,6 +24,11 @@ Metadata:
           default: Instance Configuration
         Parameters:
           - KeyName
+      -
+        Label:
+          default: NTP Configuration
+        Parameters:
+          - NtpRegion
 
 Parameters:
   AdopUsername:
@@ -39,8 +45,11 @@ Parameters:
     MinLength: '8'
     AllowedPattern: (?!password|Password)[A-Za-z0-9]*([a-zA-Z]+[0-9]+|[0-9]+[a-zA-Z]+)
     ConstraintDescription: Password must contain only letters and numbers, it must contain at least one number, and cannot contain your username or word "password".
+  SecretS3BucketStore:
+    Description: Name of a S3 bucket where your platform secrets file will be kept temporarily. NOTE - Delete this file once you have obtained a copy of it.
+    Type: String    
   VpcID:
-    Description: VPC ID of where your instance will be created
+    Description: VPC ID where your instance will be created
     Type: AWS::EC2::VPC::Id
   VPCCidr:
     Description: VPC Cidr range to allow connection to the instance from within the VPC.
@@ -56,6 +65,13 @@ Parameters:
   KeyName:
     Description: Key-pair name to use. Make sure you choose a key which you have!
     Type: AWS::EC2::KeyPair::KeyName
+  NtpRegion:
+    Description: |
+      The geographical NTP region where your NTP server is located (can be a continent or a country). 
+      This will appear in your /etc/ntp.conf file such as "server [1:4].<NtpRegion>.pool.ntp.org".
+      Please refer here http://www.pool.ntp.org/en/
+    Type: String
+    Default: europe
 
 Mappings:
   RegionMap:
@@ -63,16 +79,20 @@ Mappings:
       AMI: ami-9bf712f4
     eu-west-1:
       AMI: ami-7abd0209
+    eu-west-2:
+      AMI: ami-bb373ddf
     us-east-1:
       AMI: ami-6d1c2007
     us-west-2:
       AMI: ami-d2c924b2
     us-west-1:
       AMI: ami-af4333cf
+    ap-southeast-1:
+      AMI: ami-f068a193
     ap-southeast-2:
       AMI: ami-fedafc9d
-    eu-west-2:
-      AMI: ami-bb373ddf
+    ap-south-1:
+      AMI: ami-95cda6fa
 
 Resources:
 
@@ -109,6 +129,46 @@ Resources:
         IpProtocol: udp
         ToPort: '25826'
 
+  S3UploadRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+      Path: "/"
+    Type: AWS::IAM::Role
+
+  S3UploadRoleProfile:
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: S3UploadRole
+    Type: AWS::IAM::InstanceProfile
+
+  S3UploadRolePolicy:
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:GetObject
+          - s3:ListBucket
+          - s3:PutObject
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ''
+            - - "arn:aws:s3:::"
+              - Ref: SecretS3BucketStore
+              - "/*"
+      PolicyName: S3Upload
+      Roles:
+      - Ref: S3UploadRole
+    Type: AWS::IAM::Policy
+
   ADOP5Ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -116,7 +176,7 @@ Resources:
       - DeviceName: /dev/sda1
         Ebs:
           DeleteOnTermination: 'true'
-          VolumeSize: 25
+          VolumeSize: 8
           VolumeType: gp2
       - DeviceName: /dev/sdf
         Ebs:
@@ -138,6 +198,8 @@ Resources:
         - RegionMap
         - Ref: AWS::Region
         - 'AMI'
+      IamInstanceProfile:
+        Ref: S3UploadRoleProfile
       InstanceType: m4.xlarge
       KeyName:
         Ref: KeyName
@@ -161,12 +223,12 @@ Resources:
           Value: ADOP-C
         - Key: NetworkTier
           Value: private
+        - Key: ServiceComponent
+          Value: ApplicationServer
       UserData:
         Fn::Base64: !Sub | 
           #!/bin/bash
-          echo '==============================================================================='
           echo '=========================== Installing Yum Packages ==========================='
-          echo '==============================================================================='
           cat > /etc/yum.repos.d/docker.repo <<-'EOF'
           [dockerrepo]
           name=Docker Repository
@@ -175,22 +237,38 @@ Resources:
           gpgcheck=1
           gpgkey=https://yum.dockerproject.org/gpg
           EOF
-          yum -y install wget unzip git lvm2 docker-engine
-          grep 'tcp://0.0.0.0:2375' /usr/lib/systemd/system/docker.service || sed -i 's#ExecStart\(.*\)$#ExecStart\1 -H unix:///var/run/docker.sock -H tcp://0.0.0.0:2375#' /usr/lib/systemd/system/docker.service
+          yum -y install wget unzip git lvm2 docker-engine-1.12.6-1.el7.centos.x86_64 ntp
+                    
+          echo '=========================== Creating volumes ==========================='
           pvcreate /dev/xvdh
           vgcreate vg-docker /dev/xvdh
           while [ $(lvs vg-docker/data &> /dev/null; echo $?) -ne 0 ]; do lvcreate -l 95%VG -n data vg-docker; done
           while [ $(lvs vg-docker/metadata &> /dev/null; echo $?) -ne 0 ]; do lvcreate -l 5%VG -n metadata vg-docker; done
-          lvcreate -l 95%VG -n data vg-docker
-          lvcreate -l 5%VG -n metadata vg-docker
+          mkdir /mnt/docker-data && mkdir /mnt/docker-volumes
+          mkfs.ext4 /dev/xvdf && mkfs.ext4 /dev/xvdg
+          mount -t ext4 /dev/xvdf /mnt/docker-data
+          mount -t ext4 /dev/xvdg /mnt/docker-volumes
+          ln -s /mnt/docker-data /var/lib/docker
+          ln -s /mnt/docker-volumes /var/lib/docker/volumes
+          echo 'other_args="-g /mnt/docker-data"' >> /etc/sysconfig/docker
+          
+          echo '=========================== Configuring Docker Daemon ==========================='
+          grep 'tcp://0.0.0.0:2375' /usr/lib/systemd/system/docker.service || sed -i 's#ExecStart\(.*\)$#ExecStart\1 -H unix:///var/run/docker.sock -H tcp://0.0.0.0:2375#' /usr/lib/systemd/system/docker.service
+          sed -i "s/ExecStart\\(.*\\)$/ExecStart\\1 --storage-driver=devicemapper --storage-opt dm.datadev=\\/dev\\/vg-docker\\/data --storage-opt dm.metadatadev=\\/dev\\/vg-docker\\/metadata/g" /usr/lib/systemd/system/docker.service
           systemctl daemon-reload && systemctl enable docker && systemctl restart docker
           
-          echo '==============================================================================='
+          echo '=========================== Configuring NTP =========================='
+          sed -i "s/centos/${NtpRegion}/g" /etc/ntp.conf
+          systemctl start ntpd && systemctl enable ntpd && systemctl status ntpd
+          sleep 20
+          ntpq -p
+          ntpstat          
+
           echo '============================== Installing AWS CLI ============================='
-          echo '==============================================================================='
-          wget http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
-          rpm -Uvh epel-release-6-8.noarch.rpm
-          easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+          wget https://bootstrap.pypa.io/get-pip.py
+          python get-pip.py
+          pip install --upgrade --user awscli
+          export PATH=~/.local/bin:$PATH
           
           echo '=========================== Installing Docker Compose =========================='
           curl -L https://github.com/docker/compose/releases/download/1.7.1/docker-compose-`uname -s`-`uname -m` > /usr/bin/docker-compose
@@ -220,10 +298,12 @@ Resources:
           echo "export AWS_KEYPAIR=${KeyName}" >> conf/provider/env.provider.aws.sh
           ./adop compose -i ${!PRIVATE_IP} -f etc/aws/default.yml init
           sleep 10
+          ./adop certbot gen-export-certs "registry.${!PRIVATE_IP}.nip.io" registry
 
           echo '=========================== Setting up ADOP-C =========================='
           until [[ $(curl -X GET -s ${!INITIAL_ADMIN_USER}:${!INITIAL_ADMIN_PASSWORD_PLAIN}@${!PRIVATE_IP}/jenkins/job/Load_Platform/lastBuild/api/json?pretty=true|grep result|cut -d$' ' -f5|sed 's|[^a-zA-Z]||g') == SUCCESS ]]; do echo "Load_Platform job not finished, sleeping for 5s"; sleep 5; done
           ./adop target set -t http://${!PRIVATE_IP} -u ${!INITIAL_ADMIN_USER} -p ${!INITIAL_ADMIN_PASSWORD_PLAIN}
+          aws s3 cp platform.secrets.sh s3://${SecretS3BucketStore}/platform.secrets.sh
           set +e
           
           echo "=========================== ADOP-C setup complete ==========================="
@@ -243,4 +323,4 @@ Resources:
 Outputs:
   ReleaseNote:
     Description: This is your starting point, please copy this URL into your web browser if you are behind a VPN.
-    Value: !Join ["", [ "http://", !GetAtt ADOP5Ec2Instance.PrivateIp, ":/" ]]
+    Value: !Join ["", [ "http://", !GetAtt ADOP5Ec2Instance.PrivateIp, "/" ]]
