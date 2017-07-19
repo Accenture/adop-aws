@@ -41,3 +41,16 @@ Defines OpenVPN service which supports the infrastructure.
 ## Layer 5
 
 Defines the Lambda service which backs up the underlying EBS data.
+
+# Infrastructure Cost Breakdown
+
+The following cost breakdown is based on the following assumptions. In reality the cost is likely to be a little bit higher:
+* Default Instance types
+* Daily snapshots based on 5% increments
+* 200 MB of data in S3
+* Web traffic is unaccounted for
+* Elastic IPs are constantly assigned
+
+![CostBreakdown](https://raw.githubusercontent.com/Accenture/adop-aws/master/images/Cost_breakdown.PNG)
+
+We have used the [AWS Simple Monthly Calculator](https://calculator.s3.amazonaws.com/index.html) to work out all the estimates.
