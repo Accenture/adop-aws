@@ -7,7 +7,7 @@ The CloudFormation templates in this repository implement the following network 
 # Architecture
 
 The architecture has been decomposed into the following fine-grained layers.
- * Layer 1 - Base networking (VPC, Subnets)
+ * Layer 1 - Base networking (VPC Flow Logs Role, VPC, Subnets)
  * Layer 2 - Private Services (ADOP/C)
  * Layer 3 - Public Proxy
  * Layer 4 - OpenVPN
@@ -22,6 +22,7 @@ Pre-requisite CloudFormation scripts for;
 ## Layer 1
 
 Defines the base networking:
+  * VPC Flow Logs Role
   * VPC
   * Public networking
   * Private networking

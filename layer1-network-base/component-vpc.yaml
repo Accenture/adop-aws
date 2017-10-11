@@ -7,6 +7,11 @@ Description: |
   Layer 0 - Base Infrastructure - VPC.
 
 Parameters:
+  FlowLogARN:
+    Description: |
+      The Flow-Log-Role ARN needed to enable Flow Logs
+    Type: String
+    Default: ""
   VpcCidr:
     Description: |
       VPC Classless Inter-Domain Routing (CIDR) address range.
@@ -59,13 +64,24 @@ Resources:
       InternetGatewayId:
         Ref: InternetGateway
 
+  FlowLogs:
+    Type: "AWS::EC2::FlowLog"
+    Properties:
+      DeliverLogsPermissionArn: 
+        Ref: "FlowLogARN"
+      LogGroupName: !Join [ "-" , [ !Ref "AWS::StackName" , "Flow", "Logs" ] ]
+      ResourceId:
+        Ref: Vpc
+      ResourceType: "VPC"
+      TrafficType: "ALL"
+
 Outputs:
   BaseVpcId:
     Description: "Base VPC ID required by higher networking layers."
     Value:
       Ref: Vpc
   InternetGatewayId:
-    Description: "ID of the Internet Gateway attached to the base VPC"
+    Description: "ID of the Internet Gateway attached to the base VPC."
     Value:
       Ref: InternetGateway
 ...
