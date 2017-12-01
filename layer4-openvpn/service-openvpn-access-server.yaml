@@ -419,7 +419,7 @@ Resources:
           Value: "openVPN"
         -
           Key: "ServiceComponent"
-          Value: "applicationService"
+          Value: "applicationServer"
         -
           Key: "NetworkTier"
           Value: "public"
