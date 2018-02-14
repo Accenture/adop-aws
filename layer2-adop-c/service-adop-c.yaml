@@ -76,7 +76,7 @@ Parameters:
 Mappings:
   RegionMap:
     eu-central-1:
-      AMI: ami-9bf712f4
+      AMI: ami-337be65c
     eu-west-1:
       AMI: ami-7abd0209
     eu-west-2:
