@@ -251,6 +251,8 @@ Resources:
           ln -s /mnt/docker-data /var/lib/docker
           ln -s /mnt/docker-volumes /var/lib/docker/volumes
           echo 'other_args="-g /mnt/docker-data"' >> /etc/sysconfig/docker
+          echo "/dev/xvdf /mnt/docker-data ext4 defaults 0 0" >> /etc/fstab
+          echo "/dev/xvdg /mnt/docker-volumes ext4 defaults 0 0" >> /etc/fstab
           
           echo '=========================== Configuring Docker Daemon ==========================='
           grep 'tcp://0.0.0.0:2375' /usr/lib/systemd/system/docker.service || sed -i 's#ExecStart\(.*\)$#ExecStart\1 -H unix:///var/run/docker.sock -H tcp://0.0.0.0:2375#' /usr/lib/systemd/system/docker.service
