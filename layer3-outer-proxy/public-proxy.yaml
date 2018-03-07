@@ -160,7 +160,6 @@ Mappings:
     ap-south-1:
       AMI: ami-3d9ec952
 
-
 Resources:
   PublicElbSG:
     Type: AWS::EC2::SecurityGroup
