@@ -387,7 +387,10 @@ Resources:
           if [ "$LDAP_GROUP_MEMBERSHIP" != "" ]; then
             /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.add_req --value $LDAP_GROUP_MEMBERSHIP ConfigPut
           fi
-
+          
+          # Setting WebServer SSL/TLS Options to TLSv1.2 to disable SSV3. This will avoid SOC Vulnerability related to OpenVPN
+          /usr/local/openvpn_as/scripts/sacli --key cs.tls_version_min --value 1.2 ConfigPut
+          
           /usr/local/openvpn_as/scripts/sacli --key vpn.server.session_ip_lock --value true ConfigPut
           /usr/local/openvpn_as/scripts/sacli --key vpn.server.lockout_policy.n_fails --value 3 ConfigPut
           /usr/local/openvpn_as/scripts/sacli --key vpn.server.lockout_policy.reset_time --value 900 ConfigPut
