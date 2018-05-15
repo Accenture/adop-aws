@@ -142,23 +142,23 @@ Metadata:
 Mappings:
   RegionMap:
     eu-central-1:
-      AMI: ami-9bf712f4
+      AMI: ami-337be65c
     eu-west-1:
-      AMI: ami-7abd0209
+      AMI: ami-6e28b517
     eu-west-2:
-      AMI: ami-bb373ddf
+      AMI: ami-ee6a718a
     us-east-1:
-      AMI: ami-6d1c2007
+      AMI: ami-4bf3d731 
     us-west-2:
-      AMI: ami-d2c924b2
+      AMI: ami-a042f4d8
     us-west-1:
-      AMI: ami-af4333cf
+      AMI: ami-65e0e305
     ap-southeast-1:
-      AMI: ami-f068a193
+      AMI: ami-74fb8908
     ap-southeast-2:
-      AMI: ami-fedafc9d
+      AMI: ami-b0ba46d2
     ap-south-1:
-      AMI: ami-95cda6fa
+      AMI: ami-3d9ec952
 
 Resources:
   PublicElbSG:
