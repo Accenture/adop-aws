@@ -76,23 +76,23 @@ Parameters:
 Mappings:
   RegionMap:
     eu-central-1:
-      AMI: ami-9bf712f4
+      AMI: ami-dd3c0f36
     eu-west-1:
-      AMI: ami-7abd0209
+      AMI: ami-3548444c
     eu-west-2:
-      AMI: ami-bb373ddf
+      AMI: ami-00846a67
     us-east-1:
-      AMI: ami-6d1c2007
+      AMI: ami-9887c6e7
     us-west-2:
-      AMI: ami-d2c924b2
+      AMI: ami-3ecc8f46
     us-west-1:
-      AMI: ami-af4333cf
+      AMI: ami-4826c22b
     ap-southeast-1:
-      AMI: ami-f068a193
+      AMI: ami-8e0205f2
     ap-southeast-2:
-      AMI: ami-fedafc9d
+      AMI: ami-d8c21dba
     ap-south-1:
-      AMI: ami-95cda6fa
+      AMI: ami-1780a878
 
 Resources:
 
