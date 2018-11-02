@@ -3,7 +3,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: |
-  OpenVPN Access Server 2.1.4 (10/26/2016) Service Template for the DevOps Platform (ADOP).
+  OpenVPN Access Server 2.5.2 (Sep 05, 2018) Service Template for the DevOps Platform (ADOP).
 
 Parameters:
   ElasticIP:
@@ -57,12 +57,14 @@ Parameters:
   OpenVpnLicenseType:
       Description: |
         The OpenVPN License type. See OpenVPN Access Server AMI in the market place for AWS charges/OpenVPN license costs.
-        Options: Bring your own license (BYOL), 10/25/50/100/250 connected devices respectively.
+        Options: Bring your own license (BYOL), 5/10/25/50/100/250/500 connected devices respectively.
       Type: String
       Default: "BYOL"
       AllowedValues:
         -
           BYOL
+        -
+          5
         -
           10
         -
@@ -73,6 +75,8 @@ Parameters:
           100
         -
           250
+        -
+          500
   OpenVpnSplitTunnel:
     Description: |
       True if the OpenVPN is a split tunnel, else false. A VPN is considered to be a split tunnel if it only routes private traffic over the tunnel and not the traffic destined for the default gateway.
@@ -197,104 +201,141 @@ Metadata:
 
 Mappings:
   LicenseMap:
-    eu-west-1:
-      BYOL: "ami-07783674"
-      '10': "ami-7a793709"
-      '25': "ami-40763833"
-      '50': "ami-a57b35d6"
-      '100': 'ami-717b3502'
-      '250': "ami-24752f57"
-    us-east-1:
-      BYOL: "ami-44aaf953"
-      '10': "ami-b4affca3"
-      '25': "ami-65a9fa72"
-      '50': "ami-78aaf96f"
-      '100': "ami-e4a8fbf3"
-      '250': "ami-2b0b0a3c"
-    us-east-2:
-      BYOL: "ami-ae3e64cb"
-      '10': "ami-5f3f653a"
-      '25': "ami-b63b61d3"
-      '50': "ami-94075df1"
-      '100': "ami-a93e64cc"
-      '250': "ami-5caaf039"
-    us-west-1:
-      BYOL: "ami-fa105b9a"
-      '10': "ami-42165d22"
-      '25': "ami-57175c37"
-      '50': "ami-1c12597c"
-      '100': "ami-45165d25"
-      '250': "ami-97ca9df7"
-    us-west-2:
-      BYOL: "ami-e8d67288"
-      '10': "ami-a6d773c6"
-      '25': "ami-85c3c9e1"
-      '50': "ami-abd773cb"
-      '100': "ami-31d17551"
-      '250': "ami-46ac0726"
-    ap-northeast-2:
-      BYOL: "ami-b6e733d8"
-      '10': "ami-dbe337b5"
-      '25': "ami-cde236a3"
-      '50': "ami-4d38a521"
-      '100': "ami-f3e1359d"
-      '250': "ami-d329febd"
-    ap-southeast-1:
-      BYOL: "ami-d72a8cb4"
-      '10': "ami-33369050"
-      '25': "ami-15288e76"
-      '50': "ami-d62a8cb5"
-      '100': "ami-06369065"
-      '250': "ami-9a913df9"
-    ap-southeast-2:
-      BYOL: "ami-5e3b063d"
-      '10': "ami-d33b06b0"
-      '25': "ami-fb340998"
-      '50': "ami-393a075a"
-      '100': "ami-f0350893"
-      '250': "ami-59477f3a"
     ap-northeast-1:
-      BYOL: "ami-2f66c04e"
-      '10': "ami-2967c148"
-      '25': "ami-ec983e8d"
-      '50': "ami-499a3c28"
-      '100': "ami-489a3c29"
-      '250': "ami-282a474f"
-    eu-central-1:
-      BYOL: "ami-3f788150"
-      '10': "ami-0207fe6d"
-      '25': "ami-1d798072"
-      '50': "ami-e206ff8d"
-      '100': "ami-0107fe6e"
-      '250': "ami-b32ceadc"
-    eu-west-2:
-      BYOL: "ami-86c3c9e2"
-      '10': "ami-a3c1cbc7"
-      '25': "ami-85c3c9e1"
-      '50': "ami-a1c5cfc5"
-      '100': "ami-83c1cbe7"
-      '250': "ami-53c5cf37"
-    ca-central-1:
-      BYOL: "ami-24ad1f40"
-      '10': "ami-3fa5175b"
-      '25': "ami-3da81a59"
-      '50': "ami-22a71546"
-      '100': "ami-25ab1941"
-      '250': "ami-234af847"
+      BYOL: "ami-098d0f4c5bf6227a0"
+      '5': "ami-0d6ce1930de48f235"
+      '10': "ami-0015f2df754a86c2e"
+      '25': "ami-0fbd63d3ecc2f262f"
+      '50': "ami-0b67e06351b0dc15c"
+      '100': "ami-0c2d8eb5005dec783"
+      '250': "ami-0981364ecb18f3890"
+      '500': "ami-0ae19da9fe3f525df"
+    ap-northeast-2:
+      BYOL: "ami-02b5dc052b564fec0"
+      '5': "ami-07f266eb911aa0d88"
+      '10': "ami-071111130507ac291"
+      '25': "ami-094a5177fcccff46c"
+      '50': "ami-096b7bd3f3b7035b2"
+      '100': "ami-08bd63441c4e50757"
+      '250': "ami-0c03fa58c101eb48b"
+      '500': "ami-07cb5eeb6c448592b"
     ap-south-1:
-      BYOL: "ami-066f1b69"
-      '10': "ami-6354200c"
-      '25': "ami-076f1b68"
-      '50': "ami-2455214b"
-      '100': "ami-896a1ee6"
-      '250': "ami-46bdca29"
+      BYOL: "ami-034cb846d1e8a7167"
+      '5': "ami-0f335dc0fef7f1f36"
+      '10': "ami-038ad4c902038bdd0"
+      '25': "ami-06d45b319a2bff536"
+      '50': "ami-01100962d5503df7d"
+      '100': "ami-0ed1e3b37b4897dd5"
+      '250': "ami-089d0ae67758e5b83"
+      '500': "ami-05c0aba80ac6af73b"
+    ap-southeast-1:
+      BYOL: "ami-035ef08dc36f180aa"
+      '5': "ami-0dca7dcd09f701a3f"
+      '10': "ami-08c84d5878d1bdd2a"
+      '25': "ami-0fe56d8a2bc116ff5"
+      '50': "ami-01e4b45f98d5fb7f5"
+      '100': "ami-0ba594df5acd53c25"
+      '250': "ami-059d722420c64f2f3"
+      '500': "ami-0751c9b96123a2aa9"
+    ap-southeast-2:
+      BYOL: "ami-04451eb68bab5007c"
+      '5': "ami-044dd543b41af2ef5"
+      '10': "ami-008dcc797450628e6"
+      '25': "ami-051c2e76039a29949"
+      '50': "ami-05f8058f72bb8112f"
+      '100': "ami-09e176fd09c2dbb3c"
+      '250': "ami-0831c2ca743a90d46"
+      '500': "ami-0759b7e939252f469"
+    ca-central-1:
+      BYOL: "ami-0a5b5afba01085537"
+      '5': "ami-041d7fde0bf781b18"
+      '10': "ami-0d8713019ee3eec8c"
+      '25': "ami-0b79b723130090628"
+      '50': "ami-0f1edce4ee6ce3c07"
+      '100': "ami-0ed85ec2433dc6850"
+      '250': "ami-0d8ab8fe67517cd08"
+      '500': "ami-00c206594ccc5baab"
+    eu-central-1:
+      BYOL: "ami-0bd86b32999b56457"
+      '5': "ami-0f98d9555ba24d875"
+      '10': "ami-08f1a0bfe38eb4b88"
+      '25': "ami-06d75bf4d53a4d87e"
+      '50': "ami-0f2a01f64a53f9a43"
+      '100': "ami-0ef4220396352bf9c"
+      '250': "ami-08a29505acbb3e417"
+      '500': "ami-01efd78e202cb301b"
+    eu-west-1:
+      BYOL: "ami-03e932fa49855fcd3"
+      '5': "ami-0b6b2b40aa1d839b0"
+      '10': "ami-045946737f6836efe"
+      '25': "ami-01a191cc4def950c4"
+      '50': "ami-059b769e452752e0d"
+      '100': "ami-04d585dcac04c6f4b"
+      '250': "ami-052bdd9e54ae5e590"
+      '500': "ami-0ba6ab5b57124a46a"
+    eu-west-2:
+      BYOL: "ami-04c453c26f35557e4"
+      '5': "ami-05a04a63d3199d1b4"
+      '10': "ami-0e88702af58376dee"
+      '25': "ami-0e80176a2a2727adc"
+      '50': "ami-045e33d6c91cdc602"
+      '100': "ami-099bcac0cf32e6ae4"
+      '250': "ami-008a86e3fa3ce3143"
+      '500': "ami-0b1515fdf928688f7"
+    eu-west-3:
+      BYOL: "ami-0a5c6377a290549ed"
+      '5': "ami-04f9499f156229881"
+      '10': "ami-0278858d95633b8f5"
+      '25': "ami-05a247f3d7e5b9b18"
+      '50': "ami-049897e023125dc5c"
+      '100': "ami-0a626348066dd21af"
+      '250': "ami-0800725c5bbb3edd1"
+      '500': "ami-0b3228054e1d117fa"
     sa-east-1:
-      BYOL: "ami-283fa244"
-      '10': "ami-1e34a972"
-      '25': "ami-e43ea388"
-      '50': "ami-4d38a521"
-      '100': "ami-1d3aa771"
-      '250': "ami-c355ccaf"
+      BYOL: "ami-087afa4f729503b7b"
+      '5': "ami-0cd6c107da8dc7f2d"
+      '10': "ami-01e2b40cc995582f1"
+      '25': "ami-07174020b4ee29e11"
+      '50': "ami-03da61f57c0011e79"
+      '100': "ami-06848f85c0e8847f1"
+      '250': "ami-085b7cb78f960d53b"
+      '500': "ami-0e375cc8e87647c22"
+    us-east-1:
+      BYOL: "ami-030add67c93791800"
+      '5': "ami-06934425f62d05cba"
+      '10': "ami-056007246a75b0b21"
+      '25': "ami-0c3bc8f8e56fcca31"
+      '50': "ami-018419b0ffbfabf18"
+      '100': "ami-0737f060c4f30af20"
+      '250': "ami-09723812bac7a7a8c"
+      '500': "ami-07ac8c411a57d7ca0"
+    us-east-2:
+      BYOL: "ami-0e3ec88a0f21120e6"
+      '5': "ami-0c804f5dfb53f5c90"
+      '10': "ami-08e35b64808dd6917"
+      '25': "ami-0e17fb34419de10dc"
+      '50': "ami-0fb536e79d8d24c4f"
+      '100': "ami-0790cb30b171098fa"
+      '250': "ami-061846026272a2316"
+      '500': "ami-0d3b95e376cc1e77d"
+    us-west-1:
+      BYOL: "ami-08046fc352de22257"
+      '5': "ami-0d22d3bffaf3f9773"
+      '10': "ami-0ac2ee6638cb8ecdc"
+      '25': "ami-05b4a6799a09c4bf6"
+      '50': "ami-0efb04cd174328cfb"
+      '100': "ami-0efbf0645a65bc9a9"
+      '250': "ami-0761adff4e28e01c2"
+      '500': "ami-02451e0892b471918"
+    us-west-2:
+      BYOL: "ami-0f18500e6e4ebf9af"
+      '5': "ami-013009bc6147d1e48"
+      '10': "ami-06fdec2373b5a2e15"
+      '25': "ami-0c13dcce770317a83"
+      '50': "ami-0a49e1b1559a7e05b"
+      '100': "ami-0791290d120cce600"
+      '250': "ami-02fbd0f1efb3f59b3"
+      '500': "ami-088fe594f4c9724f8"
 
 Resources:
 
@@ -387,10 +428,10 @@ Resources:
           if [ "$LDAP_GROUP_MEMBERSHIP" != "" ]; then
             /usr/local/openvpn_as/scripts/sacli --key auth.ldap.0.add_req --value $LDAP_GROUP_MEMBERSHIP ConfigPut
           fi
-          
+
           # Setting WebServer SSL/TLS Options to TLSv1.2 to disable SSV3. This will avoid SOC Vulnerability related to OpenVPN
           /usr/local/openvpn_as/scripts/sacli --key cs.tls_version_min --value 1.2 ConfigPut
-          
+
           /usr/local/openvpn_as/scripts/sacli --key vpn.server.session_ip_lock --value true ConfigPut
           /usr/local/openvpn_as/scripts/sacli --key vpn.server.lockout_policy.n_fails --value 3 ConfigPut
           /usr/local/openvpn_as/scripts/sacli --key vpn.server.lockout_policy.reset_time --value 900 ConfigPut
