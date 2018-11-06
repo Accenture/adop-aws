@@ -63,11 +63,13 @@ This template uses the OpenVPN Access Service Marketplace AMI which comes prepac
 In this template you have the ability to select one of the following license types:
 
 * Bring your own license (BYOL)
+* 5 connected devices
 * 10 connected devices
 * 25 connected devices
 * 50 connected devices
 * 100 connected devices
 * 250 connected devices
+* 500 connected devices
 
 #### You could save your project ~$700 (for a 10 users license) a year if you choose the BYOL option, procure (through the correct channels) and [install](https://openvpn.net/index.php/access-server/docs/admin-guides/admin-guides/218-how-to-activate-your-license-in-openvpn-access-server.html) your own OpenVPN license. See [here](https://openvpn.net/index.php/access-server/pricing.html) for BYOL OpenVPN license costs. If the BYOL license is not chosen then the OpenVPN license costs will be billed through your AWS account.
 
@@ -117,7 +119,7 @@ The service uses the AWS CloudFormation service to provision the resource requir
 | InstanceType | The OpenVPN EC2 instance type. It is recommended an instance type with support for enhanced networking is selected given the advantage of network throughput and low network latency. See https://aws.amazon.com/ec2/instance-types/ for more information. |
 | OpenVpnServerFQDN | The fully-qualified domain name (FQDN) for the OpenVPN to use (e.g. vpn.example.com). Use the ElasticIP IPv4 address if you do not have a domain name. Leave this parameter blank if you have opted for an auto-assigned IPv4 address.|
 | OpenVPNKeyPair | The OpenVPN Key pair name. |
-| OpenVpnLicenseType | The OpenVPN License type. See OpenVPN Access Server AMI in the market place for AWS charges. Options: Bring your own license (BYOL), 2/10/25/50/100/250 connected devices respectively. |
+| OpenVpnLicenseType | The OpenVPN License type. See OpenVPN Access Server AMI in the market place for AWS charges. Options: Bring your own license (BYOL), 5/10/25/50/100/250/500 connected devices respectively. |
 | VpcId | The VPC IP with ADOP/C provisioned. |
 | SubnetId | The subnet id of the ADOP/C public subnet.
 | OpenVPNSecurityGroup | Security Group for OpenVPN (found via outputs from the previous OpenVPN Security Group CloudFormation script) |
