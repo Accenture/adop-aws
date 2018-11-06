@@ -27,7 +27,8 @@ Resources:
 
   EBSBackupLambdaRole:
     Type: "AWS::IAM::Role"
-    Properties: 
+    Properties:
+      RoleName: !Sub ebs-backup-lambda-role-${AWS::Region}
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -39,8 +40,7 @@ Resources:
             Action:
               - "sts:AssumeRole"
       Path: "/"
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/AWSLambdaFullAccess"      
+      
   EBSBackupLambdaPolicy:
     Type: "AWS::IAM::Policy"
     Properties:
